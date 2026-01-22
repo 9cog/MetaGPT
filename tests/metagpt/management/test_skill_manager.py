@@ -5,6 +5,9 @@
 @Author  : alexanderwu
 @File    : test_skill_manager.py
 """
+import tempfile
+from pathlib import Path
+
 from metagpt.actions import WritePRD, WriteTest
 from metagpt.logs import logger
 from metagpt.management.skill_manager import SkillManager
@@ -34,3 +37,35 @@ def test_skill_manager():
 
     rsp = manager.retrieve_skill_scored("写PRD")
     logger.info(rsp)
+
+
+def test_skill_manager_persistence():
+    """Test that SkillManager can persist and load skills"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        persist_dir = Path(tmpdir) / "skills"
+        
+        # Create manager and add skills
+        manager1 = SkillManager(persist_dir=persist_dir)
+        write_prd = WritePRD(name="WritePRD")
+        write_prd.desc = "Write PRD based on requirements"
+        manager1.add_skill(write_prd)
+        
+        # Verify skill was persisted
+        skill_file = persist_dir / "WritePRD.json"
+        assert skill_file.exists()
+        
+        # Create new manager and verify it loads the skill
+        manager2 = SkillManager(persist_dir=persist_dir)
+        loaded_skill = manager2.get_skill("WritePRD")
+        assert loaded_skill is not None
+        assert loaded_skill.name == "WritePRD"
+        
+        # Test explicit persist
+        write_test = WriteTest(name="WriteTest")
+        write_test.desc = "Write test cases"
+        manager2.add_skill(write_test)
+        manager2.persist()
+        
+        # Verify both skills are persisted
+        assert (persist_dir / "WritePRD.json").exists()
+        assert (persist_dir / "WriteTest.json").exists()
