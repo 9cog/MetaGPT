@@ -6,6 +6,7 @@
 @File    : document.py
 @Desc    : Classes and Operations Related to Files in the File System.
 """
+import json
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
@@ -100,7 +101,6 @@ class Document(BaseModel):
         elif suffix == ".json":
             # Read JSON file
             try:
-                import json
                 with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 content = json.dumps(data, ensure_ascii=False, indent=2)
@@ -154,7 +154,6 @@ class Document(BaseModel):
         elif suffix == ".json":
             # Save as JSON
             try:
-                import json
                 data = {"content": self.content}
                 with open(self.path, 'w', encoding='utf-8') as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)

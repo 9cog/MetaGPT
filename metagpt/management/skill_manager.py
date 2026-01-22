@@ -94,6 +94,8 @@ class SkillManager:
             skill_data = {
                 "name": skill.name,
                 "desc": skill.desc,
+                "class_name": skill.__class__.__name__,
+                "module": skill.__class__.__module__,
                 # Store additional attributes as needed
             }
             with open(skill_file, 'w', encoding='utf-8') as f:
@@ -114,9 +116,18 @@ class SkillManager:
                 try:
                     with open(skill_file, 'r', encoding='utf-8') as f:
                         skill_data = json.load(f)
-                    # Reconstruct basic skill
-                    # Note: Full reconstruction would need more sophisticated serialization
-                    skill = Action(name=skill_data["name"], desc=skill_data.get("desc", ""))
+                    
+                    # Try to reconstruct the original skill class
+                    # Note: Full reconstruction requires the class to be available in the module
+                    try:
+                        from metagpt.utils.common import import_class
+                        skill_class = import_class(skill_data.get("class_name", "Action"), 
+                                                   skill_data.get("module", "metagpt.actions"))
+                        skill = skill_class(name=skill_data["name"], desc=skill_data.get("desc", ""))
+                    except Exception:
+                        # Fallback to basic Action if class cannot be imported
+                        skill = Action(name=skill_data["name"], desc=skill_data.get("desc", ""))
+                    
                     self._skills[skill.name] = skill
                     logger.info(f"Loaded skill {skill.name} from {skill_file}")
                 except Exception as e:

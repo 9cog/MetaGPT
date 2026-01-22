@@ -3,6 +3,7 @@
 """
 @Desc   : the implement of memory storage
 """
+import json
 import shutil
 from pathlib import Path
 
@@ -92,7 +93,6 @@ class MemoryStorage(object):
                         obj_metadata = node.metadata
                         if obj_metadata.get("is_obj") and obj_metadata.get("obj_json"):
                             # Parse the stored message and compare IDs
-                            import json
                             stored_data = json.loads(obj_metadata["obj_json"])
                             if stored_data.get("id") == message.id:
                                 # Found the matching message, delete it
