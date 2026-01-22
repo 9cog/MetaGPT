@@ -74,10 +74,43 @@ class Document(BaseModel):
     def from_path(cls, path: Path):
         """
         Create a Document instance from a file path.
+        Supports text, excel, csv, json, and other formats.
         """
         if not path.exists():
             raise FileNotFoundError(f"File {path} not found.")
-        content = path.read_text()
+        
+        suffix = path.suffix.lower()
+        
+        if suffix in [".xlsx", ".xls"]:
+            # Read Excel file
+            try:
+                df = pd.read_excel(path, engine='openpyxl')
+                content = df.to_string()
+            except Exception as e:
+                logger.warning(f"Failed to read Excel file, trying as text: {e}")
+                content = path.read_text()
+        elif suffix == ".csv":
+            # Read CSV file
+            try:
+                df = pd.read_csv(path)
+                content = df.to_string()
+            except Exception as e:
+                logger.warning(f"Failed to read CSV file, trying as text: {e}")
+                content = path.read_text()
+        elif suffix == ".json":
+            # Read JSON file
+            try:
+                import json
+                with open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                content = json.dumps(data, ensure_ascii=False, indent=2)
+            except Exception as e:
+                logger.warning(f"Failed to read JSON file, trying as text: {e}")
+                content = path.read_text()
+        else:
+            # Default to text file
+            content = path.read_text()
+        
         return cls(content=content, path=path)
 
     @classmethod
@@ -90,6 +123,7 @@ class Document(BaseModel):
     def to_path(self, path: Optional[Path] = None):
         """
         Save content to the specified file path.
+        Supports text, excel, csv, and json formats.
         """
         if path is not None:
             self.path = path
@@ -98,8 +132,38 @@ class Document(BaseModel):
             raise ValueError("File path is not set.")
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        # TODO: excel, csv, json, etc.
-        self.path.write_text(self.content, encoding="utf-8")
+        
+        suffix = self.path.suffix.lower()
+        
+        if suffix in [".xlsx", ".xls"]:
+            # Save as Excel
+            try:
+                df = pd.DataFrame({"content": [self.content]})
+                df.to_excel(self.path, index=False, engine='openpyxl')
+            except Exception as e:
+                logger.warning(f"Failed to save as Excel, falling back to text: {e}")
+                self.path.write_text(self.content, encoding="utf-8")
+        elif suffix == ".csv":
+            # Save as CSV
+            try:
+                df = pd.DataFrame({"content": [self.content]})
+                df.to_csv(self.path, index=False)
+            except Exception as e:
+                logger.warning(f"Failed to save as CSV, falling back to text: {e}")
+                self.path.write_text(self.content, encoding="utf-8")
+        elif suffix == ".json":
+            # Save as JSON
+            try:
+                import json
+                data = {"content": self.content}
+                with open(self.path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                logger.warning(f"Failed to save as JSON, falling back to text: {e}")
+                self.path.write_text(self.content, encoding="utf-8")
+        else:
+            # Default to text file
+            self.path.write_text(self.content, encoding="utf-8")
 
     def persist(self):
         """
