@@ -54,5 +54,36 @@ async def test_ltm_search(mocker):
     ltm.clear()
 
 
+@pytest.mark.asyncio
+async def test_ltm_delete(mocker):
+    """Test that LongTermMemory can delete messages from memory_storage"""
+    mocker.patch("llama_index.embeddings.openai.base.OpenAIEmbedding._get_text_embeddings", mock_openai_embed_documents)
+    mocker.patch("llama_index.embeddings.openai.base.OpenAIEmbedding._get_text_embedding", mock_openai_embed_document)
+    mocker.patch(
+        "llama_index.embeddings.openai.base.OpenAIEmbedding._aget_query_embedding", mock_openai_aembed_document
+    )
+
+    role_id = "UTUserLtmDelete(Product Manager)"
+    rc = RoleContext(watch={"metagpt.actions.add_requirement.UserRequirement"})
+    ltm = LongTermMemory()
+    ltm.recover_memory(role_id, rc)
+
+    idea = text_embed_arr[0].get("text", "Write a cli snake game")
+    message = Message(role="User", content=idea, cause_by=UserRequirement)
+    ltm.add(message)
+    
+    # Verify message was added
+    assert ltm.count() == 1
+    
+    # Delete the message
+    ltm.delete(message)
+    
+    # Verify message was deleted from short-term memory
+    assert ltm.count() == 0
+    
+    # Clean up
+    ltm.clear()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-s"])

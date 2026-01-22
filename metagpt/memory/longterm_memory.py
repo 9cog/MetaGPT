@@ -71,7 +71,7 @@ class LongTermMemory(Memory):
 
     def delete(self, message: Message):
         super().delete(message)
-        # TODO delete message in memory_storage
+        self.memory_storage.delete(message)
 
     def clear(self):
         super().clear()
