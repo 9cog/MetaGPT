@@ -3,6 +3,7 @@
 """
 @Desc   : the implement of memory storage
 """
+import json
 import shutil
 from pathlib import Path
 
@@ -71,6 +72,38 @@ class MemoryStorage(object):
     def clean(self):
         shutil.rmtree(self.cache_dir, ignore_errors=True)
         self._initialized = False
+
+    def delete(self, message: Message) -> bool:
+        """delete message from memory storage by matching message id"""
+        if not self.faiss_engine or not self._initialized:
+            return False
+        
+        # Search through all nodes to find the one matching this message
+        # Access the index's docstore to find the matching document
+        try:
+            index = self.faiss_engine.retriever._index
+            # Iterate through all ref_doc_info to find matching message
+            for doc_id, ref_doc_info in index.ref_doc_info.items():
+                # Get nodes associated with this document
+                node_ids = ref_doc_info.node_ids if hasattr(ref_doc_info, 'node_ids') else []
+                for node_id in node_ids:
+                    node = index.docstore.get_node(node_id)
+                    if node:
+                        # Check if this node contains our message
+                        obj_metadata = node.metadata
+                        if obj_metadata.get("is_obj") and obj_metadata.get("obj_json"):
+                            # Parse the stored message and compare IDs
+                            stored_data = json.loads(obj_metadata["obj_json"])
+                            if stored_data.get("id") == message.id:
+                                # Found the matching message, delete it
+                                index.delete_ref_doc(doc_id, delete_from_docstore=True)
+                                logger.info(f"Role {self.role_id}'s memory_storage deleted message with id {message.id}")
+                                return True
+        except Exception as e:
+            logger.warning(f"Failed to delete message from memory storage: {e}")
+            return False
+        
+        return False
 
     def persist(self):
         if self.faiss_engine:
