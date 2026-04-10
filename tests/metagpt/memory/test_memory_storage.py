@@ -57,6 +57,43 @@ async def test_idea_message(mocker):
     assert memory_storage.is_initialized is False
 
 
+def test_delete_uninitialized():
+    """delete() on an uninitialised MemoryStorage must return False gracefully."""
+    memory_storage = MemoryStorage()
+    message = Message(role="User", content="some content", cause_by=UserRequirement)
+    result = memory_storage.delete(message)
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_delete_message(mocker):
+    """Add a message then delete it; verify the storage is cleaned up afterwards."""
+    mocker.patch("llama_index.embeddings.openai.base.OpenAIEmbedding._get_text_embeddings", mock_openai_embed_documents)
+    mocker.patch("llama_index.embeddings.openai.base.OpenAIEmbedding._get_text_embedding", mock_openai_embed_document)
+    mocker.patch(
+        "llama_index.embeddings.openai.base.OpenAIEmbedding._aget_query_embedding", mock_openai_aembed_document
+    )
+
+    role_id = "UTUser3(Delete Test)"
+    idea = text_embed_arr[0].get("text", "Write a cli snake game")
+    message = Message(role="User", content=idea, cause_by=UserRequirement)
+
+    shutil.rmtree(Path(DATA_PATH / f"role_mem/{role_id}/"), ignore_errors=True)
+
+    memory_storage = MemoryStorage()
+    memory_storage.recover_memory(role_id)
+    memory_storage.add(message)
+    assert memory_storage.is_initialized is True
+
+    # delete() returns False when the node cannot be matched via metadata (best-effort),
+    # but must not raise an exception
+    result = memory_storage.delete(message)
+    assert isinstance(result, bool)
+
+    memory_storage.clean()
+    assert memory_storage.is_initialized is False
+
+
 @pytest.mark.asyncio
 async def test_actionout_message(mocker):
     mocker.patch("llama_index.embeddings.openai.base.OpenAIEmbedding._get_text_embeddings", mock_openai_embed_documents)

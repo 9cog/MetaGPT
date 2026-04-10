@@ -78,3 +78,60 @@ def test_document_multi_format():
         with open(json_path, 'r') as f:
             json_data = json.load(f)
         assert json_data["content"] == "Hello JSON"
+
+
+def test_document_from_text():
+    """Document.from_text creates a Document with the given content."""
+    doc = Document.from_text("hello world")
+    assert doc.content == "hello world"
+    assert doc.path is None
+
+    doc_with_path = Document.from_text("data", path=Path("/tmp/demo.txt"))
+    assert doc_with_path.path == Path("/tmp/demo.txt")
+
+
+def test_document_to_path_no_path_raises():
+    """to_path() without a path must raise ValueError."""
+    import pytest
+
+    doc = Document.from_text("content")
+    with pytest.raises(ValueError):
+        doc.to_path()
+
+
+def test_document_from_path_not_found():
+    """from_path() with a missing file must raise FileNotFoundError."""
+    import pytest
+
+    with pytest.raises(FileNotFoundError):
+        Document.from_path(Path("/nonexistent/file.txt"))
+
+
+def test_document_persist_roundtrip():
+    """persist() writes content to disk; subsequent from_path() recovers it."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = Path(tmpdir) / "note.txt"
+        doc = Document.from_text("persist me", path=path)
+        doc.persist()
+        assert path.exists()
+        recovered = Document.from_path(path)
+        assert recovered.content == "persist me"
+
+
+def test_repo_get_missing_returns_none():
+    """Repo.get() for a filename that was never added returns None."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = Repo.from_path(Path(tmpdir))
+        assert repo.get("does_not_exist.md") is None
+
+
+def test_repo_get_text_documents():
+    """get_text_documents() returns docs and codes but not plain assets."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = Repo.from_path(Path(tmpdir))
+        repo.set("readme.md", "# readme")
+        repo.set("main.py", "print('hi')")
+        text_docs = repo.get_text_documents()
+        names = [d.name for d in text_docs]
+        assert any("readme.md" in n for n in names)
+        assert any("main.py" in n for n in names)

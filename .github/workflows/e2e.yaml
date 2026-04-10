@@ -1,0 +1,66 @@
+name: E2E Tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'main'
+      - 'dev'
+      - '*-release'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[test]
+        npm install -g @mermaid-js/mermaid-cli
+        playwright install --with-deps
+    - name: Run e2e unit tests (no live API calls)
+      run: |
+        export ALLOW_OPENAI_API_CALL=0
+        mkdir -p ~/.metagpt && cp tests/config2.yaml ~/.metagpt/config2.yaml
+        pytest \
+          tests/metagpt/test_document.py \
+          tests/metagpt/management/test_skill_manager.py \
+          tests/metagpt/memory/test_memory_storage.py \
+          tests/metagpt/memory/test_longterm_memory.py \
+          -v --tb=short \
+          --cov=./metagpt/ \
+          --cov-report=xml:e2e-cov.xml \
+          --cov-report=html:e2e-htmlcov \
+          --durations=20 \
+          | tee e2e.txt
+    - name: Show coverage report
+      run: coverage report -m
+    - name: Fail on test errors
+      run: |
+        grep -E "FAILED tests|ERROR tests|[0-9]+ passed," e2e.txt
+        failed_count=$(grep -E "^FAILED tests|^ERROR tests" e2e.txt | wc -l | tr -d '[:space:]')
+        if [[ $failed_count -gt 0 ]]; then
+          echo "$failed_count failed tests found!"
+          exit 1
+        fi
+    - name: Upload e2e test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-results-${{ matrix.python-version }}
+        path: |
+          ./e2e.txt
+          ./e2e-htmlcov/
+        retention-days: 3
+      if: ${{ always() }}

@@ -69,3 +69,46 @@ def test_skill_manager_persistence():
         # Verify both skills are persisted
         assert (persist_dir / "WritePRD.json").exists()
         assert (persist_dir / "WriteTest.json").exists()
+
+
+def test_skill_manager_get_nonexistent():
+    """get_skill() for an unknown name returns None rather than raising."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        manager = SkillManager(persist_dir=Path(tmpdir) / "skills")
+        result = manager.get_skill("NoSuchSkill")
+        assert result is None
+
+
+def test_skill_manager_del_skill():
+    """del_skill() removes the skill from memory and from disk."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        persist_dir = Path(tmpdir) / "skills"
+        manager = SkillManager(persist_dir=persist_dir)
+
+        write_prd = WritePRD(name="WritePRD")
+        write_prd.desc = "Write PRD"
+        manager.add_skill(write_prd)
+
+        skill_file = persist_dir / "WritePRD.json"
+        assert skill_file.exists()
+
+        manager.del_skill("WritePRD")
+
+        assert manager.get_skill("WritePRD") is None
+        assert not skill_file.exists()
+
+
+def test_skill_manager_type_preservation():
+    """Skills loaded from disk should be reconstructed as their original class."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        persist_dir = Path(tmpdir) / "skills"
+
+        manager1 = SkillManager(persist_dir=persist_dir)
+        write_prd = WritePRD(name="WritePRD")
+        write_prd.desc = "Write PRD"
+        manager1.add_skill(write_prd)
+
+        manager2 = SkillManager(persist_dir=persist_dir)
+        loaded = manager2.get_skill("WritePRD")
+        assert loaded is not None
+        assert isinstance(loaded, WritePRD)
