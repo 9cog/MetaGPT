@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from metagpt.config2 import config
 from metagpt.document import Document, Repo
@@ -92,8 +93,6 @@ def test_document_from_text():
 
 def test_document_to_path_no_path_raises():
     """to_path() without a path must raise ValueError."""
-    import pytest
-
     doc = Document.from_text("content")
     with pytest.raises(ValueError):
         doc.to_path()
@@ -101,8 +100,6 @@ def test_document_to_path_no_path_raises():
 
 def test_document_from_path_not_found():
     """from_path() with a missing file must raise FileNotFoundError."""
-    import pytest
-
     with pytest.raises(FileNotFoundError):
         Document.from_path(Path("/nonexistent/file.txt"))
 
